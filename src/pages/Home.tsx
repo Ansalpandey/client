@@ -4,6 +4,7 @@ import NavBar from "../components/NavBar";
 import Waitlist from "../components/Waitlist";
 import FeaturesSection from "../components/Feature";
 import FAQ from "../components/FAQ";
+import NewsLetter from "../components/NewsLetter";
 import Footer from "../components/Footer";
 
 export default function Home() {
@@ -15,6 +16,7 @@ export default function Home() {
       <Waitlist />
       <FeaturesSection />
       <FAQ />
+      <NewsLetter />
       <Footer />
     </div>
   );

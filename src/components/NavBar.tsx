@@ -40,10 +40,10 @@ export default function NavBar() {
       >
         <img
           src="/assets/images/logo-medium.png"
-          className="h-14 w-14 mt-2"
+          className="h-10 w-10"
           alt="rocket"
         />
-        <span className="leading-none">CodeFleet</span>
+        <span className="ms-3">CodeFleet</span>
       </div>
 
       <button

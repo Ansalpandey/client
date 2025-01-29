@@ -1,82 +1,121 @@
-import React, { useEffect } from "react";
-import { FitAddon } from "@xterm/addon-fit";
+import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
+import "@xterm/xterm/css/xterm.css";
 
 export default function TerminalComponent() {
-  const terminalRef = React.useRef<HTMLDivElement | null>(null); // Ref for the terminal container
-  const terminalInstance = React.useRef<Terminal | null>(null); // Ref to hold the Terminal instance
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const terminal = useRef<Terminal | null>(null);
+  const fitAddon = useRef<FitAddon | null>(null);
 
   useEffect(() => {
     if (!terminalRef.current) return;
 
-    // Initialize Terminal and FitAddon
-    const terminal = new Terminal({
-      rows: 10, // Number of rows in the terminal
+    // Initialize the terminal
+    terminal.current = new Terminal({
+      cursorBlink: true,
+      cursorStyle: "bar",
+      scrollback: 10, // Enable scrollback to allow for scrollbars
+      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
       theme: {
-        background: "#1e1e1e", // Terminal background color
-        foreground: "#ffffff", // Terminal text color
+        background: "#1e1e1e",
+        foreground: "#ffffff",
       },
-      scrollback: 1000, // Set the scrollback buffer size
     });
 
-    const fitAddon = new FitAddon();
-    terminal.loadAddon(fitAddon);
-    terminal.open(terminalRef.current); // Attach the terminal to the container
-    fitAddon.fit(); // Fit the terminal size to the container
+    fitAddon.current = new FitAddon();
+    terminal.current.loadAddon(fitAddon.current);
+    terminal.current.open(terminalRef.current);
 
-    terminalInstance.current = terminal; // Save the terminal instance
+    // Fit the terminal after DOM renders
+    fitAddon.current.fit();
 
-    // Initialize terminal content
-    terminal.writeln("Welcome to react-xtermjs!");
-    terminal.writeln("Start typing your commands...");
-    terminal.write("> "); // Add an initial prompt
+    // Set up the ResizeObserver for responsiveness
+    const resizeObserver = new ResizeObserver(() => {
+      fitAddon.current?.fit();
+    });
+    resizeObserver.observe(terminalRef.current);
 
-    let currentInput = ""; // To track the user's input
+    // Initialize WebSocket after terminal is ready
+    const initializeWebSocket = () => {
+      const wsUrl =
+        "ws://localhost:8080/ws/docker-terminal?containerId=c212de42f06bd071f0f8d132d8dcb255bc1230493739481c168784ed6088ec74";
+      wsRef.current = new WebSocket(wsUrl);
 
-    // Handle user input
-    const inputDisposable = terminal.onData((data) => {
-      const char = data; // The key pressed by the user
+      wsRef.current.onopen = () => {
+        console.log("WebSocket connection established");
+      };
 
-      if (char === "\u007F") {
-        // Handle backspace
-        if (currentInput.length > 0) {
-          currentInput = currentInput.slice(0, -1); // Remove the last character
-          terminal.write("\b \b"); // Erase the character visually
+      wsRef.current.onmessage = (event) => {
+        console.log("Message received from server:", event.data);
+        terminal.current?.write(event.data);
+      };
+
+      wsRef.current.onerror = (error) => {
+        console.error("WebSocket error:", error);
+      };
+
+      wsRef.current.onclose = () => {
+        console.log("WebSocket connection closed");
+      };
+
+      // Send terminal input to WebSocket
+      terminal.current?.onData((data) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          console.log("Sending data to server:", data);
+          wsRef.current.send(data);
+        } else {
+          console.log("WebSocket is not open");
         }
-      } else if (char === "\r") {
-        // Handle Enter key
-        terminal.writeln(""); // Move to the next line
-        terminal.writeln(`You entered: ${currentInput}`); // Echo the input
-        terminal.write("> "); // Add a new prompt
-        currentInput = ""; // Reset input buffer
-        terminal.scrollToBottom(); // Ensure the terminal scrolls to the bottom after each input
-      } else {
-        // Handle other characters
-        currentInput += char; // Append character to the input buffer
-        terminal.write(char); // Display the character
+      });
+    };
+
+    // Call WebSocket initialization after terminal is ready
+    initializeWebSocket();
+
+    // Listen for the 'clear' command and reset terminal
+    terminal.current?.onData((data) => {
+      if (data === "\x0C") { // '\x0C' is the ASCII value for clear command
+        terminal.current?.clear(); // Clear the terminal content
+        terminal.current?.reset(); // Reset terminal and clear scrollback buffer
       }
     });
 
-    // Handle window resize
-    const handleResize = () => fitAddon.fit();
-    window.addEventListener("resize", handleResize);
-
     // Cleanup on unmount
     return () => {
-      window.removeEventListener("resize", handleResize);
-      inputDisposable.dispose(); // Remove the input listener
-      terminal.dispose(); // Dispose of the terminal instance
+      resizeObserver.disconnect();
+      terminal.current?.dispose();
+      wsRef.current?.close();
     };
   }, []);
 
   return (
     <div
-      ref={terminalRef} // Div that will hold the terminal
-      className="w-full bg-gray-800 rounded-t-lg text-white"
+      ref={terminalRef}
       style={{
-        height: "300px", // Set a fixed height to prevent overflow
-        overflow: "auto", // Allow scrolling inside the terminal when content overflows
+        scrollBehavior: "smooth",
+        padding: "2px",
+        height: "100%",
+        backgroundColor: "#1e1e1e",
       }}
-    ></div>
+    >
+      <style>{`
+          /* Custom scrollbar */
+          ::-webkit-scrollbar {
+            width: 4px; /* Minimum width */
+          }
+          ::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.6);
+            border-radius: 4px;
+          }
+          ::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(255, 255, 255, 0.8);
+          }
+          ::-webkit-scrollbar-track {
+            background-color: rgba(0, 0, 0, 0.2);
+          }
+        `}</style>
+    </div>
   );
 }
