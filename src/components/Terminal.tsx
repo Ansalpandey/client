@@ -16,7 +16,8 @@ export default function TerminalComponent() {
     terminal.current = new Terminal({
       cursorBlink: true,
       cursorStyle: "bar",
-      scrollback: 10, // Enable scrollback to allow for scrollbars
+      fontSize: 14,
+      scrollback: 10000,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
       theme: {
         background: "#1e1e1e",
@@ -31,16 +32,14 @@ export default function TerminalComponent() {
     // Fit the terminal after DOM renders
     fitAddon.current.fit();
 
-    // Set up the ResizeObserver for responsiveness
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.current?.fit();
     });
     resizeObserver.observe(terminalRef.current);
 
-    // Initialize WebSocket after terminal is ready
     const initializeWebSocket = () => {
       const wsUrl =
-        "ws://localhost:8080/ws/docker-terminal?containerId=c212de42f06bd071f0f8d132d8dcb255bc1230493739481c168784ed6088ec74";
+        "ws://localhost:8080/ws/docker-terminal?containerId=03ce73a3e895e8d90807b7fe471913741960f925ea67d46b7754633d06abc97f";
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
@@ -60,7 +59,6 @@ export default function TerminalComponent() {
         console.log("WebSocket connection closed");
       };
 
-      // Send terminal input to WebSocket
       terminal.current?.onData((data) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           console.log("Sending data to server:", data);
@@ -71,18 +69,17 @@ export default function TerminalComponent() {
       });
     };
 
-    // Call WebSocket initialization after terminal is ready
     initializeWebSocket();
 
     // Listen for the 'clear' command and reset terminal
     terminal.current?.onData((data) => {
-      if (data === "\x0C") { // '\x0C' is the ASCII value for clear command
+      if (data === "\x0C") { // '\x0C' is the ASCII value for the clear command
         terminal.current?.clear(); // Clear the terminal content
-        terminal.current?.reset(); // Reset terminal and clear scrollback buffer
+        terminal.current?.reset(); // Reset terminal state and clear scrollback buffer
+        terminal.current?.write(""); // Optional: Write empty content after clearing
       }
     });
 
-    // Cleanup on unmount
     return () => {
       resizeObserver.disconnect();
       terminal.current?.dispose();
@@ -100,8 +97,9 @@ export default function TerminalComponent() {
         backgroundColor: "#1e1e1e",
       }}
     >
-      <style>{`
+      <style> {
           /* Custom scrollbar */
+          `
           ::-webkit-scrollbar {
             width: 4px; /* Minimum width */
           }

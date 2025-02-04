@@ -51,14 +51,43 @@ export default function FileTree({ onFileClick }: FileTreeProps) {
   const [newName, setNewName] = useState("");
 
   useEffect(() => {
-    fetchDirectoryContents("D:\\Work\\Spring Boot\\SpringSecurityDB"); // Root directory
-    setCurrentPath("D:\\Work\\Spring Boot\\SpringSecurityDB");
+    fetchDirectoryContents(""); // Root directory
+    setCurrentPath("");
   }, []);
 
   useEffect(() => {
+    const fetchFileContent = async (path: string) => {
+      try {
+        const response = await axios.get("http://localhost:8080/api/read", {
+          params: { path },
+        });
+        const content = response.data.content;
+        const fileExtension = path.split(".").pop() || "txt";
+        onFileClick(fileExtension, content, path);
+      } catch (error) {
+        console.error("Error reading file:", error);
+      }
+    };
+  
+    const findFirstFileNode = (
+      data: ExtendedTreeDataNode[]
+    ): ExtendedTreeDataNode | null => {
+      // Recursively find the first file node in the tree
+      for (const node of data) {
+        if (node.isLeaf) {
+          return node; // Return the first file node found
+        }
+        if (node.children) {
+          const fileNode = findFirstFileNode(node.children);
+          if (fileNode) return fileNode;
+        }
+      }
+      return null; // No file found
+    };
+  
     if (
       treeData.length > 0 &&
-      currentPath === "D:WorkSpring BootSpringSecurityDB"
+      currentPath === ""
     ) {
       // Only open the first file when we are at the root directory
       const firstFileNode = findFirstFileNode(treeData);
@@ -69,22 +98,6 @@ export default function FileTree({ onFileClick }: FileTreeProps) {
       }
     }
   }, [treeData, currentPath]);
-
-  const findFirstFileNode = (
-    data: ExtendedTreeDataNode[]
-  ): ExtendedTreeDataNode | null => {
-    // Recursively find the first file node in the tree
-    for (const node of data) {
-      if (node.isLeaf) {
-        return node; // Return the first file node found
-      }
-      if (node.children) {
-        const fileNode = findFirstFileNode(node.children);
-        if (fileNode) return fileNode;
-      }
-    }
-    return null; // No file found
-  };
 
   const fetchDirectoryContents = async (
     path: string,
