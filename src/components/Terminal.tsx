@@ -39,7 +39,7 @@ export default function TerminalComponent() {
 
     const initializeWebSocket = () => {
       const wsUrl =
-        "ws://localhost:8080/ws/docker-terminal?containerId=03ce73a3e895e8d90807b7fe471913741960f925ea67d46b7754633d06abc97f";
+        "ws://localhost:8080/ws/docker-terminal?containerId=42d7352bfc8fd36e9c55a1674ffd4c1133a822a4cd10b816aad971ad38ac4861";
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
